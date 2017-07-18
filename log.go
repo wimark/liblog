@@ -10,14 +10,14 @@ import (
 	wimark "bitbucket.org/wimarksystems/libwimark"
 )
 
-type ErrorLevel int
+type LogLevel int
 
-var DebugLevel ErrorLevel = ErrorLevel(0)
-var InfoLevel ErrorLevel = ErrorLevel(1)
-var WarningLevel ErrorLevel = ErrorLevel(2)
-var CriticalLevel ErrorLevel = ErrorLevel(3)
+var DebugLevel LogLevel = LogLevel(0)
+var InfoLevel LogLevel = LogLevel(1)
+var WarningLevel LogLevel = LogLevel(2)
+var ErrorLevel LogLevel = LogLevel(3)
 
-func (l ErrorLevel) MarshalJSON() ([]byte, error) {
+func (l LogLevel) MarshalJSON() ([]byte, error) {
 	switch l {
 	case DebugLevel:
 		return json.Marshal("DEBUG")
@@ -25,15 +25,15 @@ func (l ErrorLevel) MarshalJSON() ([]byte, error) {
 		return json.Marshal("INFO")
 	case WarningLevel:
 		return json.Marshal("WARNING")
-	case CriticalLevel:
-		return json.Marshal("CRITICAL")
+	case ErrorLevel:
+		return json.Marshal("ERROR")
 	}
 	return json.Marshal(fmt.Sprintf("LEVEL%v", l))
 }
 
 type LogMsg struct {
 	Timestamp time.Time     `json:"timestamp"`
-	Level     ErrorLevel    `json:"level"`
+	Level     LogLevel      `json:"level"`
 	Message   string        `json:"message"`
 	Module    wimark.Module `json:"service"`
 	SrcFile   string        `json:"src_file,omitempty"`
@@ -43,13 +43,13 @@ type LogMsg struct {
 type Logger struct {
 	module wimark.Module
 	output chan LogMsg
-	level  ErrorLevel
+	level  LogLevel
 	color  bool
 }
 
 var singleLogger *Logger = nil
 
-func printMessage(msg LogMsg, level ErrorLevel) {
+func printMessage(msg LogMsg, level LogLevel) {
 	if msg.Level < level {
 		return
 	}
@@ -57,7 +57,7 @@ func printMessage(msg LogMsg, level ErrorLevel) {
 	fmt.Printf("%s\n", string(bytestring))
 }
 
-func (logger *Logger) log(level ErrorLevel, format string, values ...interface{}) {
+func (logger *Logger) log(level LogLevel, format string, values ...interface{}) {
 	_, fileName, lineNumber, _ := runtime.Caller(2)
 	logger.output <- LogMsg{
 		Timestamp: time.Now(),
@@ -75,12 +75,12 @@ func Init(module wimark.Module) *Logger {
 	var logger = new(Logger)
 	logger.module = module
 	logger.output = make(chan LogMsg)
-	level := os.Getenv("ERRORLEVEL")
+	level := os.Getenv("LogLevel")
 	switch level {
-	case "CRITICAL":
+	case "ERROR":
 		fallthrough
 	case "3":
-		logger.level = CriticalLevel
+		logger.level = ErrorLevel
 	case "WARNING":
 		fallthrough
 	case "2":
@@ -116,8 +116,8 @@ func (logger *Logger) Warning(format string, values ...interface{}) {
 	logger.log(WarningLevel, format, values...)
 }
 
-func (logger *Logger) Critical(format string, values ...interface{}) {
-	logger.log(CriticalLevel, format, values...)
+func (logger *Logger) Error(format string, values ...interface{}) {
+	logger.log(ErrorLevel, format, values...)
 }
 
 func (logger *Logger) Stop() {
@@ -150,9 +150,9 @@ func Warning(format string, values ...interface{}) {
 	}
 }
 
-func Critical(format string, values ...interface{}) {
+func Error(format string, values ...interface{}) {
 	if singleLogger != nil {
-		singleLogger.log(CriticalLevel, format, values...)
+		singleLogger.log(ErrorLevel, format, values...)
 	}
 }
 
