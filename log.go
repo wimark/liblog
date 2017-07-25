@@ -75,7 +75,7 @@ func Init(module wimark.Module) *Logger {
 	var logger = new(Logger)
 	logger.module = module
 	logger.output = make(chan LogMsg)
-	level := os.Getenv("LogLevel")
+	level := os.Getenv("LOGLEVEL")
 	switch level {
 	case "ERROR":
 		fallthrough
