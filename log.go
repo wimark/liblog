@@ -3,6 +3,8 @@ package liblog
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"runtime"
 	"time"
@@ -44,7 +46,6 @@ type Logger struct {
 	module wimark.Module
 	output chan LogMsg
 	level  LogLevel
-	color  bool
 }
 
 var singleLogger *Logger = nil
@@ -124,12 +125,49 @@ func (logger *Logger) Stop() {
 	close(logger.output)
 }
 
+type LogWriter struct {
+	host  *Logger
+	level LogLevel
+}
+
+func (writer *LogWriter) Write(p []byte) (n int, err error) {
+	msg := string(p)
+	writer.host.log(writer.level, msg)
+	return len(p), nil
+}
+
+func (logger *Logger) DebugWriter() io.Writer {
+	return &LogWriter{logger, DebugLevel}
+}
+func (logger *Logger) InfoWriter() io.Writer {
+	return &LogWriter{logger, InfoLevel}
+}
+func (logger *Logger) WarningWriter() io.Writer {
+	return &LogWriter{logger, WarningLevel}
+}
+func (logger *Logger) ErrorWriter() io.Writer {
+	return &LogWriter{logger, ErrorLevel}
+}
+func (logger *Logger) DebugLogger() *log.Logger {
+	return log.New(logger.DebugWriter(), "", 0)
+}
+func (logger *Logger) InfoLogger() *log.Logger {
+	return log.New(logger.InfoWriter(), "", 0)
+}
+func (logger *Logger) WarningLogger() *log.Logger {
+	return log.New(logger.WarningWriter(), "", 0)
+}
+func (logger *Logger) ErrorLogger() *log.Logger {
+	return log.New(logger.ErrorWriter(), "", 0)
+}
+
 // SINGLETON
 
-func InitSingle(module wimark.Module) {
+func InitSingle(module wimark.Module) *Logger {
 	if singleLogger == nil {
 		singleLogger = Init(module)
 	}
+	return singleLogger
 }
 
 func Debug(format string, values ...interface{}) {
