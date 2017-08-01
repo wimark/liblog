@@ -148,17 +148,17 @@ func (logger *Logger) WarningWriter() io.Writer {
 func (logger *Logger) ErrorWriter() io.Writer {
 	return &LogWriter{logger, ErrorLevel}
 }
-func (logger *Logger) DebugLogger() *log.Logger {
-	return log.New(logger.DebugWriter(), "", 0)
+func (logger *Logger) DebugLogger(prefix string, flags int) *log.Logger {
+	return log.New(logger.DebugWriter(), prefix, flags)
 }
-func (logger *Logger) InfoLogger() *log.Logger {
-	return log.New(logger.InfoWriter(), "", 0)
+func (logger *Logger) InfoLogger(prefix string, flags int) *log.Logger {
+	return log.New(logger.InfoWriter(), prefix, flags)
 }
-func (logger *Logger) WarningLogger() *log.Logger {
-	return log.New(logger.WarningWriter(), "", 0)
+func (logger *Logger) WarningLogger(prefix string, flags int) *log.Logger {
+	return log.New(logger.WarningWriter(), prefix, flags)
 }
-func (logger *Logger) ErrorLogger() *log.Logger {
-	return log.New(logger.ErrorWriter(), "", 0)
+func (logger *Logger) ErrorLogger(prefix string, flags int) *log.Logger {
+	return log.New(logger.ErrorWriter(), prefix, flags)
 }
 
 // SINGLETON
