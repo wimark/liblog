@@ -45,7 +45,7 @@ type LogMsg struct {
 type Logger struct {
 	module wimark.Module
 	output chan LogMsg
-	level  LogLevel
+	Level  LogLevel
 }
 
 var singleLogger *Logger = nil
@@ -81,25 +81,25 @@ func Init(module wimark.Module) *Logger {
 	case "ERROR":
 		fallthrough
 	case "3":
-		logger.level = ErrorLevel
+		logger.Level = ErrorLevel
 	case "WARNING":
 		fallthrough
 	case "2":
-		logger.level = WarningLevel
+		logger.Level = WarningLevel
 	case "INFO":
 		fallthrough
 	case "1":
-		logger.level = InfoLevel
+		logger.Level = InfoLevel
 	case "DEBUG":
 		fallthrough
 	case "0":
-		logger.level = DebugLevel
+		logger.Level = DebugLevel
 	default:
-		logger.level = InfoLevel
+		logger.Level = InfoLevel
 	}
 	go func() {
 		for msg := range logger.output {
-			printMessage(msg, logger.level)
+			printMessage(msg, logger.Level)
 		}
 	}()
 	return logger
