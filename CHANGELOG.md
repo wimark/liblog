@@ -9,3 +9,17 @@
 - Singleton- и Object-based функции
 - Конфигурирование вывода при помощи переменной окружения LOGLEVEL
 - Логгирование в отдельном потоке
+
+## [v0.3.0] - 11-08-2017
+
+### Added
+
+#### 0.3.0
+- Support for io.Writer and log.Logger
+
+### Changed
+
+#### 0.3.0
+- Critical -> Error; ErrorLevel -> LogLevel
+- Environment variable renamed from LogLevel to LOGLEVEL
+- Logger.Level is now public, so it can be changed in runtime
