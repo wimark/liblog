@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	wimark "bitbucket.org/wimarksystems/libwimark"
@@ -18,6 +19,8 @@ var DebugLevel LogLevel = LogLevel(0)
 var InfoLevel LogLevel = LogLevel(1)
 var WarningLevel LogLevel = LogLevel(2)
 var ErrorLevel LogLevel = LogLevel(3)
+
+var MaxMsgLength int = 15000
 
 func (l LogLevel) MarshalJSON() ([]byte, error) {
 	switch l {
@@ -54,7 +57,32 @@ func printMessage(msg LogMsg, level LogLevel) {
 	if msg.Level < level {
 		return
 	}
-	bytestring, _ := json.Marshal(msg)
+	text := msg.Message
+	for len(text) > MaxMsgLength {
+		index := -1
+		i := strings.Index(text, "\n")
+		for i != -1 && i <= MaxMsgLength {
+			index = i
+			i = strings.Index(text[i+1:], "\n")
+			if i == -1 {
+				break
+			}
+			i = i + index + 1
+		}
+		var msgPart = msg
+		if index == -1 {
+			msgPart.Message = text[:MaxMsgLength]
+			text = text[MaxMsgLength:] // warning: may split UTF8 symbol apart
+		} else {
+			msgPart.Message = text[:index]
+			text = text[index+1:]
+		}
+		bytestring, _ := json.Marshal(msgPart)
+		fmt.Printf("%s\n", string(bytestring))
+	}
+	var msgPart = msg
+	msgPart.Message = text
+	bytestring, _ := json.Marshal(msgPart)
 	fmt.Printf("%s\n", string(bytestring))
 }
 
