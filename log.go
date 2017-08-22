@@ -46,15 +46,16 @@ type LogMsg struct {
 }
 
 type Logger struct {
-	module wimark.Module
-	output chan LogMsg
-	Level  LogLevel
+	module  wimark.Module
+	output  chan LogMsg
+	Level   LogLevel
+	writers []io.Writer
 }
 
 var singleLogger *Logger = nil
 
-func printMessage(msg LogMsg, level LogLevel) {
-	if msg.Level < level {
+func (logger *Logger) printMessage(msg LogMsg) {
+	if msg.Level < logger.Level {
 		return
 	}
 	text := msg.Message
@@ -79,11 +80,17 @@ func printMessage(msg LogMsg, level LogLevel) {
 		}
 		bytestring, _ := json.Marshal(msgPart)
 		fmt.Printf("%s\n", string(bytestring))
+		for _, w := range logger.writers {
+			fmt.Fprintf(w, "%s\n", string(bytestring))
+		}
 	}
 	var msgPart = msg
 	msgPart.Message = text
 	bytestring, _ := json.Marshal(msgPart)
 	fmt.Printf("%s\n", string(bytestring))
+	for _, w := range logger.writers {
+		fmt.Fprintf(w, "%s\n", string(bytestring))
+	}
 }
 
 func (logger *Logger) log(level LogLevel, format string, values ...interface{}) {
@@ -104,6 +111,7 @@ func Init(module wimark.Module) *Logger {
 	var logger = new(Logger)
 	logger.module = module
 	logger.output = make(chan LogMsg)
+	logger.writers = make([]io.Writer, 0)
 	level := os.Getenv("LOGLEVEL")
 	switch level {
 	case "ERROR":
@@ -127,7 +135,7 @@ func Init(module wimark.Module) *Logger {
 	}
 	go func() {
 		for msg := range logger.output {
-			printMessage(msg, logger.Level)
+			logger.printMessage(msg)
 		}
 	}()
 	return logger
@@ -187,6 +195,10 @@ func (logger *Logger) WarningLogger(prefix string, flags int) *log.Logger {
 }
 func (logger *Logger) ErrorLogger(prefix string, flags int) *log.Logger {
 	return log.New(logger.ErrorWriter(), prefix, flags)
+}
+
+func (logger *Logger) AddWriter(writer io.Writer) {
+	logger.writers = append(logger.writers, writer)
 }
 
 // SINGLETON
