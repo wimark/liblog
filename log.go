@@ -50,6 +50,7 @@ type Logger struct {
 	output  chan LogMsg
 	Level   LogLevel
 	writers []io.Writer
+	stop    chan bool
 }
 
 var singleLogger *Logger = nil
@@ -112,6 +113,7 @@ func Init(module wimark.Module) *Logger {
 	logger.module = module
 	logger.output = make(chan LogMsg)
 	logger.writers = make([]io.Writer, 0)
+	logger.stop = make(chan bool)
 	level := os.Getenv("LOGLEVEL")
 	switch level {
 	case "ERROR":
@@ -137,6 +139,7 @@ func Init(module wimark.Module) *Logger {
 		for msg := range logger.output {
 			logger.printMessage(msg)
 		}
+		logger.stop <- true
 	}()
 	return logger
 }
@@ -159,6 +162,12 @@ func (logger *Logger) Error(format string, values ...interface{}) {
 
 func (logger *Logger) Stop() {
 	close(logger.output)
+}
+
+func (logger *Logger) StopSync() {
+	close(logger.output)
+	<-logger.stop
+	close(logger.stop)
 }
 
 type LogWriter struct {
@@ -237,6 +246,13 @@ func Error(format string, values ...interface{}) {
 func StopSingle() {
 	if singleLogger != nil {
 		singleLogger.Stop()
+	}
+	singleLogger = nil
+}
+
+func StopSyncSingle() {
+	if singleLogger != nil {
+		singleLogger.StopSync()
 	}
 	singleLogger = nil
 }
