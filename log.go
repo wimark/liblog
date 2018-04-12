@@ -41,12 +41,14 @@ type LogMsg struct {
 	Level     LogLevel      `json:"level"`
 	Message   string        `json:"message"`
 	Module    wimark.Module `json:"service"`
+	ModuleId  wimark.UUID   `json:"service_id,omitempty"`
 	SrcFile   string        `json:"src_file,omitempty"`
 	SrcLine   int           `json:"src_line,omitempty"`
 }
 
 type Logger struct {
 	module  wimark.Module
+	id      wimark.UUID
 	output  chan LogMsg
 	Level   LogLevel
 	writers []io.Writer
@@ -100,6 +102,7 @@ func (logger *Logger) log(level LogLevel, format string, values ...interface{}) 
 		Timestamp: time.Now(),
 		Level:     level,
 		Module:    logger.module,
+		ModuleId:  logger.id,
 		Message:   fmt.Sprintf(format, values...),
 		SrcFile:   fileName,
 		SrcLine:   lineNumber,
@@ -208,6 +211,10 @@ func (logger *Logger) ErrorLogger(prefix string, flags int) *log.Logger {
 
 func (logger *Logger) AddWriter(writer io.Writer) {
 	logger.writers = append(logger.writers, writer)
+}
+
+func (logger *Logger) SetModuleId(id wimark.UUID) {
+	logger.id = id
 }
 
 // SINGLETON
