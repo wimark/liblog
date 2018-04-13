@@ -25,13 +25,13 @@ var MaxMsgLength int = 15000
 func (l LogLevel) MarshalJSON() ([]byte, error) {
 	switch l {
 	case DebugLevel:
-		return json.Marshal("DEBUG")
+		return json.Marshal(wimark.SystemEventLevelDEBUG)
 	case InfoLevel:
-		return json.Marshal("INFO")
+		return json.Marshal(wimark.SystemEventLevelINFO)
 	case WarningLevel:
-		return json.Marshal("WARNING")
+		return json.Marshal(wimark.SystemEventLevelWARNING)
 	case ErrorLevel:
-		return json.Marshal("ERROR")
+		return json.Marshal(wimark.SystemEventLevelERROR)
 	}
 	return json.Marshal(fmt.Sprintf("LEVEL%v", l))
 }
