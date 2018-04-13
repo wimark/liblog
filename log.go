@@ -212,6 +212,10 @@ func (logger *Logger) AddWriter(writer io.Writer) {
 
 // SINGLETON
 
+func Singleton() *Logger {
+	return singleLogger
+}
+
 func InitSingle(module wimark.Module) *Logger {
 	if singleLogger == nil {
 		singleLogger = Init(module)
