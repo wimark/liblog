@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,18 +21,18 @@ var InfoLevel LogLevel = LogLevel(1)
 var WarningLevel LogLevel = LogLevel(2)
 var ErrorLevel LogLevel = LogLevel(3)
 
-var MaxMsgLength int = 15000
+var MaxMsgLength int = 8000
 
 func (l LogLevel) MarshalJSON() ([]byte, error) {
 	switch l {
 	case DebugLevel:
-		return json.Marshal("DEBUG")
+		return json.Marshal(wimark.SystemEventLevelDEBUG)
 	case InfoLevel:
-		return json.Marshal("INFO")
+		return json.Marshal(wimark.SystemEventLevelINFO)
 	case WarningLevel:
-		return json.Marshal("WARNING")
+		return json.Marshal(wimark.SystemEventLevelWARNING)
 	case ErrorLevel:
-		return json.Marshal("ERROR")
+		return json.Marshal(wimark.SystemEventLevelERROR)
 	}
 	return json.Marshal(fmt.Sprintf("LEVEL%v", l))
 }
@@ -53,6 +54,7 @@ type Logger struct {
 	Level   LogLevel
 	writers []io.Writer
 	stop    chan bool
+	msgLen  int
 }
 
 var singleLogger *Logger = nil
@@ -62,10 +64,10 @@ func (logger *Logger) printMessage(msg LogMsg) {
 		return
 	}
 	text := msg.Message
-	for len(text) > MaxMsgLength {
+	for len(text) > logger.msgLen {
 		index := -1
 		i := strings.Index(text, "\n")
-		for i != -1 && i <= MaxMsgLength {
+		for i != -1 && i <= logger.msgLen {
 			index = i
 			i = strings.Index(text[i+1:], "\n")
 			if i == -1 {
@@ -75,8 +77,8 @@ func (logger *Logger) printMessage(msg LogMsg) {
 		}
 		var msgPart = msg
 		if index == -1 {
-			msgPart.Message = text[:MaxMsgLength]
-			text = text[MaxMsgLength:] // warning: may split UTF8 symbol apart
+			msgPart.Message = text[:logger.msgLen]
+			text = text[logger.msgLen:] // warning: may split UTF8 symbol apart
 		} else {
 			msgPart.Message = text[:index]
 			text = text[index+1:]
@@ -137,6 +139,10 @@ func Init(module wimark.Module) *Logger {
 		logger.Level = DebugLevel
 	default:
 		logger.Level = InfoLevel
+	}
+	logger.msgLen, _ = strconv.Atoi(os.Getenv("LOG_MSG_LEN"))
+	if logger.msgLen == 0 {
+		logger.msgLen = MaxMsgLength
 	}
 	go func() {
 		for msg := range logger.output {
@@ -218,6 +224,10 @@ func (logger *Logger) SetModuleId(id wimark.UUID) {
 }
 
 // SINGLETON
+
+func Singleton() *Logger {
+	return singleLogger
+}
 
 func InitSingle(module wimark.Module) *Logger {
 	if singleLogger == nil {
