@@ -38,17 +38,17 @@ func (l LogLevel) MarshalJSON() ([]byte, error) {
 }
 
 type LogMsg struct {
-	Timestamp time.Time     `json:"timestamp"`
-	Level     LogLevel      `json:"level"`
-	Message   string        `json:"message"`
-	Module    wimark.Module `json:"service"`
-	ModuleId  wimark.UUID   `json:"service_id,omitempty"`
-	SrcFile   string        `json:"src_file,omitempty"`
-	SrcLine   int           `json:"src_line,omitempty"`
+	Timestamp time.Time   `json:"timestamp"`
+	Level     LogLevel    `json:"level"`
+	Message   string      `json:"message"`
+	Module    string      `json:"service"`
+	ModuleId  wimark.UUID `json:"service_id,omitempty"`
+	SrcFile   string      `json:"src_file,omitempty"`
+	SrcLine   int         `json:"src_line,omitempty"`
 }
 
 type Logger struct {
-	module  wimark.Module
+	module  string
 	id      wimark.UUID
 	output  chan LogMsg
 	Level   LogLevel
@@ -113,7 +113,7 @@ func (logger *Logger) log(level LogLevel, format string, values ...interface{}) 
 
 // OBJECT
 
-func Init(module wimark.Module) *Logger {
+func Init(module string) *Logger {
 	var logger = new(Logger)
 	logger.module = module
 	logger.output = make(chan LogMsg)
@@ -230,6 +230,13 @@ func Singleton() *Logger {
 }
 
 func InitSingle(module wimark.Module) *Logger {
+	if singleLogger == nil {
+		singleLogger = Init(module.String())
+	}
+	return singleLogger
+}
+
+func InitSingleStr(module string) *Logger {
 	if singleLogger == nil {
 		singleLogger = Init(module)
 	}
