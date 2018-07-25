@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.12.1] - 25-07-2018
+
+### Changed
+#### no-module-init
+ - InitSingleStr with string module name
+
 ## [v0.11] - 05-06-2017
 
 ### Changed
