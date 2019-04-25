@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -106,7 +107,7 @@ func (logger *Logger) log(level LogLevel, format string, values ...interface{}) 
 		Module:    logger.module,
 		ModuleId:  logger.id,
 		Message:   fmt.Sprintf(format, values...),
-		SrcFile:   fileName,
+		SrcFile:   filepath.Base(fileName),
 		SrcLine:   lineNumber,
 	}
 }
