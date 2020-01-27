@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	wimark "bitbucket.org/wimarksystems/libwimark"
 )
 
 type LogLevel int
@@ -27,30 +25,30 @@ var MaxMsgLength int = 8000
 func (l LogLevel) MarshalJSON() ([]byte, error) {
 	switch l {
 	case DebugLevel:
-		return json.Marshal(wimark.SystemEventLevelDEBUG)
+		return []byte("DEBUG"), nil
 	case InfoLevel:
-		return json.Marshal(wimark.SystemEventLevelINFO)
+		return []byte("INFO"), nil
 	case WarningLevel:
-		return json.Marshal(wimark.SystemEventLevelWARNING)
+		return []byte("WARNING"), nil
 	case ErrorLevel:
-		return json.Marshal(wimark.SystemEventLevelERROR)
+		return []byte("ERROR"), nil
 	}
 	return json.Marshal(fmt.Sprintf("LEVEL%v", l))
 }
 
 type LogMsg struct {
-	Timestamp time.Time   `json:"timestamp"`
-	Level     LogLevel    `json:"level"`
-	Message   string      `json:"message"`
-	Module    string      `json:"service"`
-	ModuleId  wimark.UUID `json:"service_id,omitempty"`
-	SrcFile   string      `json:"src_file,omitempty"`
-	SrcLine   int         `json:"src_line,omitempty"`
+	Timestamp time.Time `json:"timestamp"`
+	Level     LogLevel  `json:"level"`
+	Message   string    `json:"message"`
+	Module    string    `json:"service"`
+	ModuleId  string    `json:"service_id,omitempty"`
+	SrcFile   string    `json:"src_file,omitempty"`
+	SrcLine   int       `json:"src_line,omitempty"`
 }
 
 type Logger struct {
 	module  string
-	id      wimark.UUID
+	id      string
 	output  chan LogMsg
 	Level   LogLevel
 	writers []io.Writer
@@ -220,7 +218,7 @@ func (logger *Logger) AddWriter(writer io.Writer) {
 	logger.writers = append(logger.writers, writer)
 }
 
-func (logger *Logger) SetModuleId(id wimark.UUID) {
+func (logger *Logger) SetModuleId(id string) {
 	logger.id = id
 }
 
@@ -230,12 +228,12 @@ func Singleton() *Logger {
 	return singleLogger
 }
 
-func InitSingle(module wimark.Module) *Logger {
-	if singleLogger == nil {
-		singleLogger = Init(module.String())
-	}
-	return singleLogger
-}
+// func InitSingle(module wimark.Module) *Logger {
+// 	if singleLogger == nil {
+// 		singleLogger = Init(module.String())
+// 	}
+// 	return singleLogger
+// }
 
 func InitSingleStr(module string) *Logger {
 	if singleLogger == nil {
