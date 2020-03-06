@@ -25,15 +25,15 @@ var MaxMsgLength int = 8000
 func (l LogLevel) MarshalJSON() ([]byte, error) {
 	switch l {
 	case DebugLevel:
-		return []byte("DEBUG"), nil
+		return json.Marshal("DEBUG")
 	case InfoLevel:
-		return []byte("INFO"), nil
+		return json.Marshal("INFO")
 	case WarningLevel:
-		return []byte("WARNING"), nil
+		return json.Marshal("WARNING")
 	case ErrorLevel:
-		return []byte("ERROR"), nil
+		return json.Marshal("ERROR")
 	}
-	return json.Marshal(fmt.Sprintf("LEVEL%v", l))
+	return json.Marshal(fmt.Sprintf("LEVEL%d", l))
 }
 
 type LogMsg struct {
@@ -56,7 +56,7 @@ type Logger struct {
 	msgLen  int
 }
 
-var singleLogger *Logger = nil
+var singleLogger *Logger
 
 func (logger *Logger) printMessage(msg LogMsg) {
 	if msg.Level < logger.Level {
@@ -120,21 +120,13 @@ func Init(module string) *Logger {
 	logger.stop = make(chan bool)
 	level := os.Getenv("LOGLEVEL")
 	switch level {
-	case "ERROR":
-		fallthrough
-	case "3":
+	case "ERROR", "3":
 		logger.Level = ErrorLevel
-	case "WARNING":
-		fallthrough
-	case "2":
+	case "WARNING", "2":
 		logger.Level = WarningLevel
-	case "INFO":
-		fallthrough
-	case "1":
+	case "INFO", "1":
 		logger.Level = InfoLevel
-	case "DEBUG":
-		fallthrough
-	case "0":
+	case "DEBUG", "0":
 		logger.Level = DebugLevel
 	default:
 		logger.Level = InfoLevel
