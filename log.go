@@ -62,8 +62,8 @@ func (logger *Logger) printMessage(msg LogMsg) {
 	if msg.Level < logger.Level {
 		return
 	}
-	text := msg.Message
-	for len(text) > logger.msgLen {
+	for len(msg.Message) > logger.msgLen {
+		text := msg.Message
 		index := -1
 		i := strings.Index(text, "\n")
 		for i != -1 && i <= logger.msgLen {
@@ -87,13 +87,13 @@ func (logger *Logger) printMessage(msg LogMsg) {
 		for _, w := range logger.writers {
 			fmt.Fprintf(w, "%s\n", string(bytestring))
 		}
+		msgPart.Message = text
 	}
-	var msgPart = msg
-	msgPart.Message = text
-	bytestring, _ := json.Marshal(msgPart)
-	fmt.Printf("%s\n", string(bytestring))
+	bytestring, _ := json.Marshal(msg)
+	bytestring = append(bytestring, byte('\n'))
+	os.Stdout.Write(bytestring)
 	for _, w := range logger.writers {
-		fmt.Fprintf(w, "%s\n", string(bytestring))
+		w.Write(bytestring)
 	}
 }
 
@@ -124,8 +124,6 @@ func Init(module string) *Logger {
 		logger.Level = ErrorLevel
 	case "WARNING", "2":
 		logger.Level = WarningLevel
-	case "INFO", "1":
-		logger.Level = InfoLevel
 	case "DEBUG", "0":
 		logger.Level = DebugLevel
 	default:
@@ -138,6 +136,7 @@ func Init(module string) *Logger {
 	go func() {
 		for msg := range logger.output {
 			logger.printMessage(msg)
+			runtime.Gosched()
 		}
 		logger.stop <- true
 	}()
@@ -219,13 +218,6 @@ func (logger *Logger) SetModuleId(id string) {
 func Singleton() *Logger {
 	return singleLogger
 }
-
-// func InitSingle(module wimark.Module) *Logger {
-// 	if singleLogger == nil {
-// 		singleLogger = Init(module.String())
-// 	}
-// 	return singleLogger
-// }
 
 func InitSingleStr(module string) *Logger {
 	if singleLogger == nil {
