@@ -87,7 +87,7 @@ func (logger *Logger) printMessage(msg LogMsg) {
 		for _, w := range logger.writers {
 			fmt.Fprintf(w, "%s\n", string(bytestring))
 		}
-		msgPart.Message = text
+		msg.Message = text
 	}
 	bytestring, _ := json.Marshal(msg)
 	bytestring = append(bytestring, byte('\n'))
