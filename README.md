@@ -1,29 +1,27 @@
-Библиотека liblog
-========
+# liblog
 
-Библиотека предназначена для вывода в лог сообщений в определенном JSON-формате вида:
-`
-{
-  "timestamp" : "2017-07-14T16:12:50.180058247+03:00",
-  "level" : "DEBUG",
-  "message" : "mqtt mesage tx on the topic: REQ/BACKEND//CONFIG//oqDtmsZ57i9scHD6/U",
-  "service" : "BACKEND",
-  "src_file" : "request_reply.go",
-  "src_line" : "214"
+Yet another simple logging library for Golang.
+
+## Usage
+
+```go
+package main
+
+import (
+	log "github.com/wimark/liblog"
+)
+
+func main() {
+	var appName = "super-app"
+	log.InitSingleStr(appName) // singletone init
+	
+	log.Debug("debug msg") // LOGLEVEL = 0 will show this message
+	log.Info("info msg") // basic level is Info
+	log.Warning("warning msg: %s", "some-text") // full fmt.Printf style
+	log.Error("simple error: %s", "some-error-text")  // logging is channel-based with async call  for error need to Wait / Sleep
 }
-`
-Поддерживаются 4 уровня сообщений: DEBUG, INFO, WARNING и ERROR.
+```
 
-Логгер выводит сообщения в отдельном потоке, так что не должен сильно задерживать выполнение основного кода, но может конфликтовать с "обычным" выводом в stdout.
+## Copyright
 
-Использование
---------
-
-Сперва нужно инициализировать логгер вызовом функции InitSingle() с параметром - идентификатор модуля (libwimark.Module). После этого можно пользоваться функциями Debug, Info, Warning и Error; параметры аналогичны параметрам fmt.Printf. Таймстемп и файл/строка вызова будут подставлены автоматом. При необходимости ресурсы логгер можно освободить функцией StopSingle, после этого вывод в лог работать не будет.
-
-Для тех, кому не нравится работать с синглтонами, есть возможность создать свой объект логгера функцией Init и пользоваться его методами Debug, Info, Warning, Error и Stop. Плюсом можно считать возможность создать несколько объектов логгера и писать в лог "от имени" разных модулей (хотя возможны конфликты при выводе в лог из разных потоков).
-
-Переменная окружения
---------
-
-Переменная окружения LOGLEVEL отвечает за уровень сообщений, которые попадают в лог. Печататься будут сообщения, уровень которых не ниже LOGLEVEL. Уровень по умолчанию - INFO. В качестве значений можно задавать как строки (DEBUG, INFO, ...), так и числа (0, 1, ... соответственно).
+Wimark Systems, 2021

@@ -1,3 +1,3 @@
-module bitbucket.org/wimarksystems/liblog
+module github.com/wimark/liblog
 
 go 1.13
