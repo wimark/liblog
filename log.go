@@ -1,7 +1,7 @@
 package liblog
 
 import (
-	"encoding/json"
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -9,8 +9,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 type LogLevel int
@@ -20,104 +21,160 @@ var InfoLevel LogLevel = LogLevel(1)
 var WarningLevel LogLevel = LogLevel(2)
 var ErrorLevel LogLevel = LogLevel(3)
 
-var MaxMsgLength int = 8000
-
-func (l LogLevel) MarshalJSON() ([]byte, error) {
+func (l LogLevel) String() string {
 	switch l {
 	case DebugLevel:
-		return json.Marshal("DEBUG")
+		return "DEBUG"
 	case InfoLevel:
-		return json.Marshal("INFO")
+		return "INFO"
 	case WarningLevel:
-		return json.Marshal("WARNING")
+		return "WARNING"
 	case ErrorLevel:
-		return json.Marshal("ERROR")
+		return "ERROR"
 	}
-	return json.Marshal(fmt.Sprintf("LEVEL%d", l))
+	return fmt.Sprintf("LEVEL%d", l)
 }
 
 type LogMsg struct {
-	Timestamp time.Time `json:"timestamp"`
-	Level     LogLevel  `json:"level"`
-	Message   string    `json:"message"`
-	Module    string    `json:"service"`
-	ModuleId  string    `json:"service_id,omitempty"`
-	SrcFile   string    `json:"src_file,omitempty"`
-	SrcLine   int       `json:"src_line,omitempty"`
+	Level    LogLevel
+	format   string
+	values   []interface{}
+	Module   string
+	ModuleId string
+	SrcFile  string
+	SrcLine  int
 }
 
 type Logger struct {
 	module  string
 	id      string
-	output  chan LogMsg
+	output  chan *LogMsg
 	Level   LogLevel
 	writers []io.Writer
 	stop    chan bool
-	msgLen  int
+	wg      sync.WaitGroup
+	msgPool *sync.Pool
+	bufPool *sync.Pool
 }
 
 var singleLogger *Logger
 
-func (logger *Logger) printMessage(msg LogMsg) {
-	if msg.Level < logger.Level {
-		return
-	}
-	for len(msg.Message) > logger.msgLen {
-		text := msg.Message
-		index := -1
-		i := strings.Index(text, "\n")
-		for i != -1 && i <= logger.msgLen {
-			index = i
-			i = strings.Index(text[i+1:], "\n")
-			if i == -1 {
-				break
-			}
-			i = i + index + 1
-		}
-		var msgPart = msg
-		if index == -1 {
-			msgPart.Message = text[:logger.msgLen]
-			text = text[logger.msgLen:] // warning: may split UTF8 symbol apart
-		} else {
-			msgPart.Message = text[:index]
-			text = text[index+1:]
-		}
-		bytestring, _ := json.Marshal(msgPart)
-		fmt.Printf("%s\n", string(bytestring))
-		for _, w := range logger.writers {
-			fmt.Fprintf(w, "%s\n", string(bytestring))
-		}
-		msg.Message = text
-	}
-	bytestring, _ := json.Marshal(msg)
-	bytestring = append(bytestring, byte('\n'))
-	os.Stdout.Write(bytestring)
-	for _, w := range logger.writers {
-		w.Write(bytestring)
+func (logger *Logger) worker() {
+	defer logger.wg.Done()
+	for msg := range logger.output {
+		logger.writeMessage(msg)
+		// Clear message values before putting back to pool to not hold references
+		msg.values = nil
+		logger.msgPool.Put(msg) // Return the message to the pool
 	}
 }
 
+func (logger *Logger) writeMessage(msg *LogMsg) {
+	if msg.Level < logger.Level {
+		return
+	}
+
+	buf := logger.bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+
+	buf.WriteString(`{"timestamp":"`)
+	buf.WriteString(time.Now().Format(time.RFC3339Nano))
+	buf.WriteString(`","level":"`)
+	buf.WriteString(msg.Level.String())
+	buf.WriteString(`","message":"`)
+
+	// Use a temporary buffer from the pool to format the message, avoiding allocation.
+	tmpBuf := logger.bufPool.Get().(*bytes.Buffer)
+	tmpBuf.Reset()
+	fmt.Fprintf(tmpBuf, msg.format, msg.values...)
+
+	// Escape the formatted message from the temporary buffer into the main buffer.
+	messageBytes := tmpBuf.Bytes()
+	for i := 0; i < len(messageBytes); {
+		r, size := utf8.DecodeRune(messageBytes[i:])
+		switch r {
+		case '"', '\\':
+			buf.WriteByte('\\')
+			buf.WriteByte(byte(r))
+		case '\n':
+			buf.WriteString(`\n`)
+		case '\r':
+			buf.WriteString(`\r`)
+		case '\t':
+			buf.WriteString(`\t`)
+		default:
+			buf.WriteRune(r)
+		}
+		i += size
+	}
+	logger.bufPool.Put(tmpBuf) // Return temporary buffer to the pool.
+
+	buf.WriteString(`","service":"`)
+	buf.WriteString(logger.module)
+	if logger.id != "" {
+		buf.WriteString(`","service_id":"`)
+		buf.WriteString(logger.id)
+	}
+	if msg.SrcFile != "" {
+		buf.WriteString(`","src_file":"`)
+		buf.WriteString(msg.SrcFile)
+		buf.WriteString(`","src_line":`)
+		buf.WriteString(strconv.Itoa(msg.SrcLine))
+	}
+	buf.WriteString("}\n")
+
+	// Write to all outputs
+	os.Stdout.Write(buf.Bytes())
+	for _, w := range logger.writers {
+		w.Write(buf.Bytes())
+	}
+	logger.bufPool.Put(buf)
+}
+
 func (logger *Logger) log(level LogLevel, format string, values ...interface{}) {
-	_, fileName, lineNumber, _ := runtime.Caller(2)
-	logger.output <- LogMsg{
-		Timestamp: time.Now(),
-		Level:     level,
-		Module:    logger.module,
-		ModuleId:  logger.id,
-		Message:   fmt.Sprintf(format, values...),
-		SrcFile:   filepath.Base(fileName),
-		SrcLine:   lineNumber,
+	if level < logger.Level {
+		return
+	}
+
+	msg := logger.msgPool.Get().(*LogMsg)
+	msg.Level = level
+	msg.format = format
+	msg.values = values
+	_, msg.SrcFile, msg.SrcLine, _ = runtime.Caller(2)
+	msg.SrcFile = filepath.Base(msg.SrcFile)
+
+	// Non-blocking send
+	select {
+	case logger.output <- msg:
+	default:
+		// Channel is full, drop the message and put it back to the pool
+		logger.msgPool.Put(msg)
+		log.Println("liblog: channel is full. Log message dropped.")
 	}
 }
 
 // OBJECT
 
 func Init(module string) *Logger {
-	var logger = new(Logger)
-	logger.module = module
-	logger.output = make(chan LogMsg)
-	logger.writers = make([]io.Writer, 0)
-	logger.stop = make(chan bool)
+	logger := &Logger{
+		module:  module,
+		output:  make(chan *LogMsg, 1024), // Use a buffered channel
+		writers: make([]io.Writer, 0),
+		stop:    make(chan bool),
+		msgPool: &sync.Pool{
+			New: func() interface{} {
+				return &LogMsg{}
+			},
+		},
+		bufPool: &sync.Pool{
+			New: func() interface{} {
+				// Pre-allocate buffer to a reasonable size to avoid re-allocations.
+				b := new(bytes.Buffer)
+				b.Grow(128)
+				return b
+			},
+		},
+	}
 	level := os.Getenv("LOGLEVEL")
 	switch level {
 	case "ERROR", "3":
@@ -129,17 +186,10 @@ func Init(module string) *Logger {
 	default:
 		logger.Level = InfoLevel
 	}
-	logger.msgLen, _ = strconv.Atoi(os.Getenv("LOG_MSG_LEN"))
-	if logger.msgLen == 0 {
-		logger.msgLen = MaxMsgLength
-	}
-	go func() {
-		for msg := range logger.output {
-			logger.printMessage(msg)
-			runtime.Gosched()
-		}
-		logger.stop <- true
-	}()
+
+	logger.wg.Add(1)
+	go logger.worker()
+
 	return logger
 }
 
@@ -165,8 +215,7 @@ func (logger *Logger) Stop() {
 
 func (logger *Logger) StopSync() {
 	close(logger.output)
-	<-logger.stop
-	close(logger.stop)
+	logger.wg.Wait()
 }
 
 type LogWriter struct {
